@@ -10,8 +10,7 @@ This repository implements a heartrate monitor to scan for heartrate, then repor
 | Khang Pham | --- | --- |
 | Elle Underhill | --- | --- |
 
-## Repository Structure (required)
-Your repo must match this layout (minimum):
+## Repository Structure 
 
 ```
 prototypecode/ --- stores the code fior the various prototypes
