@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAREband Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0e14;
+    --panel:     #0f1520;
+    --border:    #1a2535;
+    --green:     #00e676;
+    --green-dim: #00e67622;
+    --amber:     #ffab00;
+    --amber-dim: #ffab0022;
+    --red:       #ff1744;
+    --red-dim:   #ff174422;
+    --text:      #cdd6e0;
+    --muted:     #4a5a6a;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Barlow', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    letter-spacing: 0.25em;
+    color: var(--green);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--muted); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+
+  .status-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 10px var(--green);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .status-dot.error { background: var(--red); box-shadow: 0 0 10px var(--red); }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Main grid ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 1px;
+    background: var(--border);
+    padding: 0;
+  }
+
+  .card {
+    background: var(--panel);
+    padding: 36px 40px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Decorative corner marks */
+  .card::before, .card::after {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+  }
+  .card::before { top: 12px; left: 12px; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+  .card::after  { bottom: 12px; right: 12px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  /* ── Heart Rate Card ── */
+  #card-hr { grid-column: 1; grid-row: 1; }
+
+  .bpm-display {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .bpm-value {
+    font-family: var(--mono);
+    font-size: 7rem;
+    line-height: 1;
+    color: var(--green);
+    text-shadow: 0 0 40px var(--green);
+    transition: color 0.3s, text-shadow 0.3s;
+    letter-spacing: -4px;
+  }
+
+  .bpm-value.warning {
+    color: var(--amber);
+    text-shadow: 0 0 40px var(--amber);
+  }
+
+  .bpm-value.danger {
+    color: var(--red);
+    text-shadow: 0 0 40px var(--red);
+  }
+
+  .bpm-unit {
+    font-family: var(--mono);
+    font-size: 1rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    padding-bottom: 12px;
+  }
+
+  /* ECG waveform canvas */
+  #ecg-canvas {
+    width: 100%;
+    height: 80px;
+    margin-top: 16px;
+    opacity: 0.7;
+  }
+
+  .hr-zone {
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+  }
+
+  .hr-zone span {
+    color: var(--green);
+    margin-left: 8px;
+  }
+
+  /* ── Average HR Card ── */
+  #card-avg { grid-column: 2; grid-row: 1; }
+
+  .avg-value {
+    font-family: var(--mono);
+    font-size: 7rem;
+    line-height: 1;
+    color: var(--amber);
+    text-shadow: 0 0 40px var(--amber);
+    letter-spacing: -4px;
+    transition: all 0.5s;
+  }
+
+  .avg-value.locked {
+    color: var(--green);
+    text-shadow: 0 0 40px var(--green);
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 24px;
+  }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--amber), var(--green));
+    border-radius: 2px;
+    transition: width 1s linear;
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  .progress-fill.complete {
+    width: 100% !important;
+    background: var(--green);
+    box-shadow: 0 0 12px var(--green);
+  }
+
+  .lock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 4px 12px;
+    border: 1px solid var(--green);
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  .lock-badge.visible { opacity: 1; }
+
+  /* ── Log Card ── */
+  #card-log { grid-column: 1 / 3; grid-row: 2; }
+
+  .log-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 6px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+
+  .log-grid::-webkit-scrollbar { width: 3px; }
+  .log-grid::-webkit-scrollbar-track { background: transparent; }
+  .log-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-entry {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: fadein 0.3s ease;
+  }
+
+  .log-entry .log-bpm { color: var(--green); font-size: 0.85rem; }
+  .log-entry .log-time { color: var(--muted); font-size: 0.6rem; }
+
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Connect Screen ── */
+  #connect-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    gap: 32px;
+  }
+
+  .connect-title {
+    font-family: var(--mono);
+    font-size: 2.5rem;
+    letter-spacing: 0.3em;
+    color: var(--green);
+    text-shadow: 0 0 40px var(--green);
+    text-transform: uppercase;
+  }
+
+  .connect-sub {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-align: center;
+    max-width: 360px;
+    line-height: 1.7;
+  }
+
+  .btn-connect {
+    padding: 16px 48px;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: color 0.3s, background 0.3s;
+  }
+
+  .btn-connect::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--green);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+    z-index: -1;
+  }
+
+  .btn-connect:hover { color: var(--bg); }
+  .btn-connect:hover::before { transform: scaleX(1); }
+
+  .btn-connect:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .error-msg {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--red);
+    letter-spacing: 0.15em;
+    min-height: 1.2em;
+  }
+
+  /* ── Heartbeat flash overlay ── */
+  #beat-flash {
+    position: fixed;
+    inset: 0;
+    background: var(--green);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 200;
+  }
+
+  /* ── Footer ── */
+  footer {
+    padding: 10px 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    background: var(--panel);
+  }
+
+  /* Responsive */
+  @media (max-width: 680px) {
+    main { grid-template-columns: 1fr; }
+    #card-hr { grid-column: 1; }
+    #card-avg { grid-column: 1; grid-row: 2; }
+    #card-log { grid-column: 1; grid-row: 3; }
+    .bpm-value, .avg-value { font-size: 5rem; }
+    header { padding: 14px 20px; }
+    .card { padding: 28px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Beat flash -->
+<div id="beat-flash"></div>
+
+<!-- Connect Screen -->
+<div id="connect-screen">
+  <div class="connect-title">CAREband</div>
+  <div class="connect-sub">
+    Open this page in Chrome or Edge on Android or desktop.<br>
+    Make sure your CAREband device is powered on and nearby.
+  </div>
+  <button class="btn-connect" id="btn-connect" onclick="connectBLE()">Connect Device</button>
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<!-- Dashboard -->
+<header>
+  <div class="logo">CARE<span>band</span></div>
+  <div class="status-pill">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">DISCONNECTED</span>
+  </div>
+</header>
+
+<main>
+  <!-- Live Heart Rate -->
+  <div class="card" id="card-hr">
+    <div class="card-label">// live heart rate</div>
+    <div class="bpm-display">
+      <div class="bpm-value" id="bpm-value">--</div>
+      <div class="bpm-unit">BPM</div>
+    </div>
+    <canvas id="ecg-canvas"></canvas>
+    <div class="hr-zone" id="hr-zone">ZONE &mdash; <span>WAITING</span></div>
+  </div>
+
+  <!-- Average HR -->
+  <div class="card" id="card-avg">
+    <div class="card-label">// 5-min average</div>
+    <div class="bpm-display">
+      <div class="avg-value" id="avg-value">--</div>
+      <div class="bpm-unit">BPM</div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span>SAMPLING WINDOW</span>
+        <span id="progress-time">0s / 300s</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <div class="lock-badge" id="lock-badge">
+      &#9632; AVERAGE LOCKED
+    </div>
+  </div>
+
+  <!-- Beat Log -->
+  <div class="card" id="card-log">
+    <div class="card-label">// beat log</div>
+    <div class="log-grid" id="log-grid">
+      <!-- entries injected here -->
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span id="footer-samples">SAMPLES: 0</span>
+  <span>CAREband v1.0</span>
+  <span id="footer-time">--:--:--</span>
+</footer>
+
+<script>
+// ── UUIDs ──────────────────────────────────────────────────────────────────
+const HR_SERVICE_UUID    = '0000180d-0000-1000-8000-00805f9b34fb';
+const HR_CHAR_UUID       = '00002a37-0000-1000-8000-00805f9b34fb';
+const AVG_HR_CHAR_UUID   = '19b10001-e8f2-537e-4f6c-d104768a1214';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let device, server, hrChar, avgChar;
+let beatLog       = [];
+let sampleCount   = 0;
+let avgLocked     = false;
+let windowStart   = null;
+let progressTimer = null;
+const AVG_WINDOW  = 300; // seconds
+
+// ── ECG Canvas ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('ecg-canvas');
+const ctx    = canvas.getContext('2d');
+let ecgData  = [];
+let ecgAnimFrame;
+
+function resizeCanvas() {
+  canvas.width  = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function triggerECGBeat() {
+  // Push a synthetic ECG spike shape
+  const spike = [0, 0.1, 0.15, 0.1, -0.1, 1.0, -0.4, 0.2, 0.15, 0.1, 0, 0, 0, 0, 0, 0];
+  ecgData.push(...spike);
+}
+
+function drawECG() {
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxPoints = 120;
+  while (ecgData.length > maxPoints) ecgData.shift();
+
+  // Fade trailing line
+  const grad = ctx.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0,   'rgba(0,230,118,0)');
+  grad.addColorStop(0.3, 'rgba(0,230,118,0.3)');
+  grad.addColorStop(1,   'rgba(0,230,118,0.9)');
+
+  ctx.beginPath();
+  ctx.strokeStyle = grad;
+  ctx.lineWidth   = 1.5;
+  ctx.lineJoin    = 'round';
+
+  const mid = H / 2;
+  const amp = H * 0.38;
+
+  ecgData.forEach((v, i) => {
+    const x = (i / maxPoints) * W;
+    const y = mid - v * amp;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Scrolling zero baseline
+  if (ecgData.length < maxPoints) {
+    ecgData.push(0);
+  }
+
+  ecgAnimFrame = requestAnimationFrame(drawECG);
+}
+drawECG();
+
+// ── Beat flash ─────────────────────────────────────────────────────────────
+function flashBeat() {
+  const el = document.getElementById('beat-flash');
+  el.style.transition = 'none';
+  el.style.opacity    = '0.04';
+  setTimeout(() => {
+    el.style.transition = 'opacity 0.4s ease';
+    el.style.opacity    = '0';
+  }, 30);
+}
+
+// ── HR Zone ────────────────────────────────────────────────────────────────
+function getZone(bpm) {
+  if (bpm < 60)  return { label: 'RESTING',   color: '#4a90d9' };
+  if (bpm < 100) return { label: 'NORMAL',    color: '#00e676' };
+  if (bpm < 140) return { label: 'ELEVATED',  color: '#ffab00' };
+  return              { label: 'HIGH',        color: '#ff1744' };
+}
+
+// ── Progress timer ─────────────────────────────────────────────────────────
+function startProgressTimer() {
+  if (windowStart !== null || avgLocked) return;
+  windowStart = Date.now();
+
+  progressTimer = setInterval(() => {
+    if (avgLocked) { clearInterval(progressTimer); return; }
+    const elapsed = Math.min((Date.now() - windowStart) / 1000, AVG_WINDOW);
+    const pct     = (elapsed / AVG_WINDOW) * 100;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-time').textContent =
+      Math.floor(elapsed) + 's / ' + AVG_WINDOW + 's';
+  }, 500);
+}
+
+// ── HR Characteristic handler ───────────────────────────────────────────────
+function onHRNotify(event) {
+  const data  = event.target.value;
+  const flags = data.getUint8(0);
+  const bpm   = (flags & 0x01) ? data.getUint16(1, true) : data.getUint8(1);
+
+  // Update display
+  const bpmEl = document.getElementById('bpm-value');
+  bpmEl.textContent = bpm;
+
+  // Color by zone
+  bpmEl.className = 'bpm-value';
+  if (bpm >= 140) bpmEl.classList.add('danger');
+  else if (bpm >= 100) bpmEl.classList.add('warning');
+
+  // Zone label
+  const zone = getZone(bpm);
+  const zoneEl = document.getElementById('hr-zone');
+  zoneEl.innerHTML = `ZONE &mdash; <span style="color:${zone.color}">${zone.label}</span>`;
+
+  // ECG + flash
+  triggerECGBeat();
+  flashBeat();
+
+  // Log entry
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+  beatLog.unshift({ bpm, time: timeStr });
+  if (beatLog.length > 60) beatLog.pop();
+  renderLog();
+
+  sampleCount++;
+  document.getElementById('footer-samples').textContent = 'SAMPLES: ' + sampleCount;
+  document.getElementById('footer-time').textContent    = timeStr;
+
+  // Start window timer on first beat
+  if (!avgLocked) startProgressTimer();
+}
+
+// ── Avg Characteristic handler ─────────────────────────────────────────────
+function onAvgNotify(event) {
+  const avg = event.target.value.getUint8(0);
+  const el  = document.getElementById('avg-value');
+  el.textContent = avg;
+
+  // Check if we should lock (device signals lock by sending same value repeatedly
+  // after 5 min — we mirror the Arduino's locked state here)
+  if (windowStart && (Date.now() - windowStart) / 1000 >= AVG_WINDOW && !avgLocked) {
+    lockAverage();
+  }
+}
+
+function lockAverage() {
+  avgLocked = true;
+  clearInterval(progressTimer);
+
+  document.getElementById('progress-fill').classList.add('complete');
+  document.getElementById('progress-time').textContent = '300s / 300s';
+  document.getElementById('avg-value').classList.add('locked');
+  document.getElementById('lock-badge').classList.add('visible');
+}
+
+// ── Beat log renderer ───────────────────────────────────────────────────────
+function renderLog() {
+  const grid = document.getElementById('log-grid');
+  grid.innerHTML = beatLog.map(e => `
+    <div class="log-entry">
+      <span class="log-bpm">${e.bpm}</span>
+      <span class="log-time">${e.time}</span>
+    </div>
+  `).join('');
+}
+
+// ── BLE Connect ─────────────────────────────────────────────────────────────
+async function connectBLE() {
+  const btn = document.getElementById('btn-connect');
+  const err = document.getElementById('error-msg');
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'SCANNING...';
+
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'CAREband' }],
+      optionalServices: [HR_SERVICE_UUID]
+    });
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    server = await device.gatt.connect();
+    const service = await server.getPrimaryService(HR_SERVICE_UUID);
+
+    // Heart Rate characteristic
+    hrChar = await service.getCharacteristic(HR_CHAR_UUID);
+    await hrChar.startNotifications();
+    hrChar.addEventListener('characteristicvaluechanged', onHRNotify);
+
+    // Average HR characteristic (may not always be available immediately)
+    try {
+      avgChar = await service.getCharacteristic(AVG_HR_CHAR_UUID);
+      await avgChar.startNotifications();
+      avgChar.addEventListener('characteristicvaluechanged', onAvgNotify);
+    } catch (e) {
+      console.warn('Average HR characteristic not found — will retry.', e);
+    }
+
+    // Show dashboard
+    document.getElementById('connect-screen').style.display = 'none';
+    document.getElementById('status-dot').className = 'status-dot connected';
+    document.getElementById('status-text').textContent = device.name || 'CONNECTED';
+
+  } catch (e) {
+    err.textContent = e.message || 'Connection failed.';
+    btn.disabled    = false;
+    btn.textContent = 'CONNECT DEVICE';
+    document.getElementById('status-dot').className = 'status-dot error';
+  }
+}
+
+function onDisconnected() {
+  document.getElementById('status-dot').className  = 'status-dot error';
+  document.getElementById('status-text').textContent = 'DISCONNECTED';
+  document.getElementById('connect-screen').style.display = 'flex';
+  document.getElementById('btn-connect').disabled  = false;
+  document.getElementById('btn-connect').textContent = 'RECONNECT';
+  clearInterval(progressTimer);
+}
+
+// Check Web Bluetooth support
+if (!navigator.bluetooth) {
+  document.getElementById('error-msg').textContent =
+    'Web Bluetooth not supported. Use Chrome or Edge on Android/desktop.';
+  document.getElementById('btn-connect').disabled = true;
+}
+</script>
+</body>
+</html>

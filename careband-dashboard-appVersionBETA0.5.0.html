@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAREband Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:         #f4f6f8;
+    --surface:    #ffffff;
+    --border:     #e0e5eb;
+    --text:       #1a2230;
+    --muted:      #8a95a3;
+    --green:      #0a7c4e;
+    --green-light:#e8f5ef;
+    --amber:      #b06000;
+    --amber-light:#fff3e0;
+    --red:        #c0152a;
+    --red-light:  #fdecea;
+    --blue:       #1a56a0;
+    --blue-light: #e8f0fb;
+    --mono:       'DM Mono', monospace;
+    --sans:       'DM Sans', sans-serif;
+    --radius:     6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Alert Banner ─────────────────────────────────────────────────────── */
+  #alert-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--red);
+    color: #fff;
+    padding: 12px 28px;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    position: sticky;
+    top: 0;
+    z-index: 300;
+    animation: slideDown 0.3s ease;
+  }
+
+  #alert-banner.visible { display: flex; }
+
+  @keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+  }
+
+  .alert-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .alert-icon {
+    width: 20px; height: 20px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .alert-dismiss {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    padding: 4px 14px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .alert-dismiss:hover { background: rgba(255,255,255,0.35); }
+
+  /* ── Warm-up Banner ───────────────────────────────────────────────────── */
+  #warmup-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--blue);
+    color: #fff;
+    padding: 10px 28px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    position: sticky;
+    top: 0;
+    z-index: 299;
+  }
+
+  #warmup-banner.visible { display: flex; }
+
+  .warmup-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .warmup-track {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 2px;
+    overflow: hidden;
+    max-width: 200px;
+  }
+
+  .warmup-fill {
+    height: 100%;
+    width: 0%;
+    background: #fff;
+    border-radius: 2px;
+    transition: width 1s linear;
+  }
+
+  /* ── Header ──────────────────────────────────────────────────────────── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .logo em {
+    font-style: normal;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .conn-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .conn-dot.on  { background: var(--green); box-shadow: 0 0 0 2px var(--green-light); }
+  .conn-dot.err { background: var(--red);   box-shadow: 0 0 0 2px var(--red-light); }
+
+  /* ── Connect Screen ───────────────────────────────────────────────────── */
+  #connect-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .connect-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 48px 52px;
+    max-width: 380px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .connect-wordmark {
+    font-family: var(--mono);
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    color: var(--text);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .connect-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.7;
+  }
+
+  .divider { width: 32px; height: 1px; background: var(--border); }
+
+  .btn-connect {
+    width: 100%;
+    padding: 12px;
+    background: var(--text);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-connect:hover:not(:disabled) { opacity: 0.85; }
+  .btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .connect-err {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--red);
+    letter-spacing: 0.08em;
+    min-height: 1.2em;
+    text-align: center;
+  }
+
+  /* ── Main layout ──────────────────────────────────────────────────────── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    padding: 24px 28px;
+    align-content: start;
+  }
+
+  /* ── Cards ────────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+  }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* ── Big number readout ───────────────────────────────────────────────── */
+  .readout {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .readout-val {
+    font-family: var(--mono);
+    font-size: 4.2rem;
+    line-height: 1;
+    font-weight: 300;
+    letter-spacing: -2px;
+    color: var(--text);
+    transition: color 0.3s;
+  }
+
+  .readout-val.elevated { color: var(--amber); }
+  .readout-val.high     { color: var(--red);   }
+  .readout-val.warming  { color: var(--muted); }
+
+  .readout-unit {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    padding-bottom: 6px;
+  }
+
+  /* ── Zone / status chip ───────────────────────────────────────────────── */
+  .zone-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    background: var(--blue-light);
+    color: var(--blue);
+    transition: background 0.3s, color 0.3s;
+  }
+  .zone-chip.normal   { background: var(--green-light); color: var(--green); }
+  .zone-chip.elevated { background: var(--amber-light); color: var(--amber); }
+  .zone-chip.high     { background: var(--red-light);   color: var(--red);   }
+  .zone-chip.warming  { background: var(--blue-light);  color: var(--blue);  }
+  .zone-chip.ready    { background: var(--green-light); color: var(--green); }
+
+  .zone-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* ── Confirm pips ─────────────────────────────────────────────────────── */
+  .confirm-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .confirm-label {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+
+  .confirm-pip {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+  .confirm-pip.lit { background: var(--red); }
+
+  /* ── Average card status chip ─────────────────────────────────────────── */
+  .avg-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    background: var(--blue-light);
+    color: var(--blue);
+    transition: background 0.3s, color 0.3s;
+  }
+  .avg-status-chip.active {
+    background: var(--green-light);
+    color: var(--green);
+  }
+
+  /* ── Sample counter ───────────────────────────────────────────────────── */
+  .sample-count {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-top: 8px;
+  }
+
+  /* ── Threshold card ───────────────────────────────────────────────────── */
+  .threshold-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .threshold-val {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: -1px;
+    transition: color 0.3s;
+  }
+  .threshold-val.active { color: var(--red); }
+
+  .threshold-unit {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .threshold-sub {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+  }
+
+  /* ── Beat log ─────────────────────────────────────────────────────────── */
+  #card-log { grid-column: 1 / 4; }
+
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+  }
+
+  .log-table th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    padding: 0 0 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .log-table td {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-table tbody tr { animation: rowIn 0.25s ease; }
+
+  @keyframes rowIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  td.bpm-cell      { font-weight: 500; }
+  td.flag-cell     { color: var(--red);   font-size: 0.62rem; letter-spacing: 0.1em; }
+  td.warming-cell  { color: var(--blue);  font-size: 0.62rem; letter-spacing: 0.1em; font-style: italic; }
+  td.normal-cell   { color: var(--muted); font-size: 0.62rem; }
+
+  /* ── Footer ───────────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 10px 28px;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+    #card-log { grid-column: 1 / 3; }
+    .readout-val { font-size: 3rem; }
+    header { padding: 0 16px; }
+  }
+
+  @media (max-width: 460px) {
+    main { grid-template-columns: 1fr; }
+    #card-log { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Alert Banner -->
+<div id="alert-banner">
+  <div class="alert-left">
+    <div class="alert-icon">!</div>
+    <span id="alert-text">Heart rate exceeds rolling average by more than 22%</span>
+  </div>
+  <button class="alert-dismiss" onclick="dismissAlert()">Dismiss</button>
+</div>
+
+<!-- Warm-up Banner -->
+<div id="warmup-banner">
+  <div class="warmup-progress">
+    <span id="warmup-text">ALERT WARM-UP — 0s / 120s</span>
+    <div class="warmup-track">
+      <div class="warmup-fill" id="warmup-fill"></div>
+    </div>
+  </div>
+  <span>Alerts arm after 2 min</span>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">CARE<em>band</em></div>
+  <div class="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-text">Not connected</span>
+  </div>
+</header>
+
+<!-- Connect Screen -->
+<div id="connect-screen">
+  <div class="connect-card">
+    <div class="connect-wordmark">CAREband</div>
+    <div class="connect-sub">Open in Chrome or Edge on Android or desktop. Ensure your CAREband device is powered on and nearby.</div>
+    <div class="divider"></div>
+    <button class="btn-connect" id="btn-connect" onclick="connectBLE()">Connect Device</button>
+    <div class="connect-err" id="connect-err"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<main>
+
+  <!-- Live HR -->
+  <div class="card">
+    <div class="card-label">Heart Rate</div>
+    <div class="readout">
+      <div class="readout-val" id="bpm-val">--</div>
+      <div class="readout-unit">BPM</div>
+    </div>
+    <div class="zone-chip" id="zone-chip">
+      <div class="zone-dot"></div>
+      <span id="zone-label">Waiting</span>
+    </div>
+    <div class="confirm-row">
+      <span class="confirm-label">Alert confirm</span>
+      <div class="confirm-pip" id="pip-1"></div>
+      <div class="confirm-pip" id="pip-2"></div>
+      <div class="confirm-pip" id="pip-3"></div>
+    </div>
+  </div>
+
+  <!-- Rolling Average -->
+  <div class="card">
+    <div class="card-label">Rolling Average</div>
+    <div class="readout">
+      <div class="readout-val" id="avg-val">--</div>
+      <div class="readout-unit">BPM</div>
+    </div>
+    <div class="avg-status-chip" id="avg-status-chip">
+      <div class="zone-dot"></div>
+      <span id="avg-status-label">Warming up</span>
+    </div>
+    <div class="sample-count" id="sample-count">Samples: 0</div>
+  </div>
+
+  <!-- Threshold -->
+  <div class="card">
+    <div class="card-label">Alert Threshold (22%)</div>
+    <div class="threshold-row">
+      <div class="threshold-val" id="threshold-val">--</div>
+      <div class="threshold-unit">BPM</div>
+    </div>
+    <div class="threshold-sub" id="threshold-sub">Available after 2-min warm-up</div>
+  </div>
+
+  <!-- Beat Log -->
+  <div class="card" id="card-log">
+    <div class="card-label">Beat Log</div>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>BPM</th>
+          <th>Rolling Avg</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="log-body"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<footer>
+  <span id="footer-samples">Samples: 0</span>
+  <span>CAREband Monitor</span>
+  <span id="footer-time">--:--:--</span>
+</footer>
+
+<script>
+// ── UUIDs ──────────────────────────────────────────────────────────────────
+const HR_SERVICE    = '0000180d-0000-1000-8000-00805f9b34fb';
+const HR_CHAR       = '00002a37-0000-1000-8000-00805f9b34fb';
+const AVG_HR_CHAR   = '19b10001-e8f2-537e-4f6c-d104768a1214';
+const AVG_READY_CHAR= '19b10002-e8f2-537e-4f6c-d104768a1214';
+
+const THRESHOLD_PCT    = 0.22;
+const WARMUP_S         = 120;
+const CONFIRM_REQUIRED = 3;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let device, server, hrChar, avgChar, readyChar;
+let currentBPM     = 0;
+let currentAvg     = 0;
+let averageReady   = false;   // set by avgReadyChar from Arduino
+let alertDismissed = false;
+let breachStreak   = 0;
+let sampleCount    = 0;
+let beatLog        = [];
+
+// Client-side warm-up timer (mirrors Arduino, used to drive progress bar)
+let warmupStart    = null;
+let warmupTimer    = null;
+
+// ── Warm-up progress bar ───────────────────────────────────────────────────
+function startWarmupTimer() {
+  if (warmupStart !== null) return;
+  warmupStart = Date.now();
+  document.getElementById('warmup-banner').classList.add('visible');
+
+  warmupTimer = setInterval(() => {
+    if (averageReady) {
+      clearInterval(warmupTimer);
+      document.getElementById('warmup-banner').classList.remove('visible');
+      return;
+    }
+    const elapsed = Math.min((Date.now() - warmupStart) / 1000, WARMUP_S);
+    const pct = (elapsed / WARMUP_S) * 100;
+    document.getElementById('warmup-fill').style.width  = pct + '%';
+    document.getElementById('warmup-text').textContent  =
+      `ALERT WARM-UP — ${Math.floor(elapsed)}s / ${WARMUP_S}s`;
+  }, 500);
+}
+
+// ── Alert system ───────────────────────────────────────────────────────────
+function checkThreshold(bpm, avg) {
+  if (!averageReady || avg === 0) return;
+
+  const threshold = avg * (1 + THRESHOLD_PCT);
+
+  if (bpm > threshold) {
+    breachStreak++;
+  } else {
+    breachStreak   = 0;
+    alertDismissed = false; // re-arm when HR normalises
+  }
+
+  document.getElementById('pip-1').className =
+    'confirm-pip' + (breachStreak >= 1 ? ' lit' : '');
+  document.getElementById('pip-2').className =
+    'confirm-pip' + (breachStreak >= 2 ? ' lit' : '');
+  document.getElementById('pip-3').className =
+    'confirm-pip' + (breachStreak >= 3 ? ' lit' : '');
+
+  if (breachStreak >= CONFIRM_REQUIRED && !alertDismissed) {
+    const pctOver = Math.round(((bpm - avg) / avg) * 100);
+    document.getElementById('alert-text').textContent =
+      `ELEVATED HEART RATE — ${bpm} BPM is ${pctOver}% above rolling average of ${avg} BPM for ${breachStreak} consecutive beats`;
+    document.getElementById('alert-banner').classList.add('visible');
+  }
+}
+
+function dismissAlert() {
+  alertDismissed = true;
+  document.getElementById('alert-banner').classList.remove('visible');
+}
+
+// ── Zone ───────────────────────────────────────────────────────────────────
+function applyZone(bpm) {
+  const chip  = document.getElementById('zone-chip');
+  const label = document.getElementById('zone-label');
+  const val   = document.getElementById('bpm-val');
+
+  val.className  = 'readout-val';
+  chip.className = 'zone-chip';
+
+  if (bpm < 60) {
+    label.textContent = 'Resting';
+  } else if (bpm < 100) {
+    label.textContent = 'Normal';
+    chip.classList.add('normal');
+  } else if (bpm < 140) {
+    label.textContent = 'Elevated';
+    chip.classList.add('elevated');
+    val.classList.add('elevated');
+  } else {
+    label.textContent = 'High';
+    chip.classList.add('high');
+    val.classList.add('high');
+  }
+}
+
+// ── Threshold card ─────────────────────────────────────────────────────────
+function updateThresholdCard(avg, bpm) {
+  if (!averageReady || avg === 0) return;
+
+  const threshBPM = Math.round(avg * (1 + THRESHOLD_PCT));
+  const el  = document.getElementById('threshold-val');
+  const sub = document.getElementById('threshold-sub');
+
+  el.textContent = threshBPM;
+
+  if (bpm > threshBPM) {
+    el.classList.add('active');
+    sub.textContent = 'THRESHOLD EXCEEDED';
+    sub.style.color = 'var(--red)';
+  } else {
+    el.classList.remove('active');
+    sub.textContent = 'Within normal range';
+    sub.style.color = '';
+  }
+}
+
+// ── Average card status ────────────────────────────────────────────────────
+function updateAvgStatus() {
+  const chip  = document.getElementById('avg-status-chip');
+  const label = document.getElementById('avg-status-label');
+  if (averageReady) {
+    chip.classList.add('active');
+    label.textContent = 'Alert system active';
+  } else {
+    chip.classList.remove('active');
+    label.textContent = 'Warming up';
+  }
+}
+
+// ── Beat log ───────────────────────────────────────────────────────────────
+function addLogRow(bpm, avg, status, cellClass) {
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  beatLog.unshift({ time: now, bpm, avg, status, cellClass });
+  if (beatLog.length > 30) beatLog.pop();
+
+  document.getElementById('log-body').innerHTML = beatLog.map(e => `
+    <tr>
+      <td>${e.time}</td>
+      <td class="bpm-cell">${e.bpm}</td>
+      <td>${e.avg > 0 ? e.avg : '—'}</td>
+      <td class="${e.cellClass}">${e.status}</td>
+    </tr>`).join('');
+}
+
+// ── BLE Handlers ───────────────────────────────────────────────────────────
+function onHRNotify(event) {
+  const data  = event.target.value;
+  const flags = data.getUint8(0);
+  const bpm   = (flags & 0x01) ? data.getUint16(1, true) : data.getUint8(1);
+  currentBPM  = bpm;
+
+  document.getElementById('bpm-val').textContent = bpm;
+  applyZone(bpm);
+
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  document.getElementById('footer-time').textContent    = now;
+  document.getElementById('footer-samples').textContent = 'Samples: ' + (++sampleCount);
+  document.getElementById('sample-count').textContent   = 'Samples: ' + sampleCount;
+
+  // Start client-side warm-up timer on first beat
+  startWarmupTimer();
+
+  // Determine log row status
+  let status    = '';
+  let cellClass = 'normal-cell';
+
+  if (!averageReady) {
+    status    = 'Warming up';
+    cellClass = 'warming-cell';
+  } else if (currentAvg > 0) {
+    const threshold = currentAvg * (1 + THRESHOLD_PCT);
+    if (bpm > threshold) {
+      status    = 'THRESHOLD EXCEEDED';
+      cellClass = 'flag-cell';
+    }
+    updateThresholdCard(currentAvg, bpm);
+    checkThreshold(bpm, currentAvg);
+  }
+
+  addLogRow(bpm, currentAvg, status, cellClass);
+}
+
+function onAvgNotify(event) {
+  const avg  = event.target.value.getUint8(0);
+  currentAvg = avg;
+  document.getElementById('avg-val').textContent = avg;
+
+  if (averageReady && avg > 0) {
+    updateThresholdCard(avg, currentBPM);
+  }
+}
+
+function onReadyNotify(event) {
+  const ready = event.target.value.getUint8(0);
+  if (ready === 1 && !averageReady) {
+    averageReady = true;
+    clearInterval(warmupTimer);
+    document.getElementById('warmup-banner').classList.remove('visible');
+    document.getElementById('threshold-sub').textContent = 'Within normal range';
+
+    // Show threshold value now that we're active
+    if (currentAvg > 0) {
+      document.getElementById('threshold-val').textContent =
+        Math.round(currentAvg * (1 + THRESHOLD_PCT));
+    }
+  }
+  updateAvgStatus();
+}
+
+// ── BLE Connect ─────────────────────────────────────────────────────────────
+async function connectBLE() {
+  const btn = document.getElementById('btn-connect');
+  const err = document.getElementById('connect-err');
+  err.textContent = '';
+  btn.disabled    = true;
+  btn.textContent = 'Scanning…';
+
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'CAREband' }],
+      optionalServices: [HR_SERVICE]
+    });
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    server = await device.gatt.connect();
+    const service = await server.getPrimaryService(HR_SERVICE);
+
+    hrChar = await service.getCharacteristic(HR_CHAR);
+    await hrChar.startNotifications();
+    hrChar.addEventListener('characteristicvaluechanged', onHRNotify);
+
+    try {
+      avgChar = await service.getCharacteristic(AVG_HR_CHAR);
+      await avgChar.startNotifications();
+      avgChar.addEventListener('characteristicvaluechanged', onAvgNotify);
+    } catch(e) { console.warn('Avg HR char not found:', e); }
+
+    try {
+      readyChar = await service.getCharacteristic(AVG_READY_CHAR);
+      await readyChar.startNotifications();
+      readyChar.addEventListener('characteristicvaluechanged', onReadyNotify);
+    } catch(e) { console.warn('Avg ready char not found:', e); }
+
+    document.getElementById('connect-screen').style.display = 'none';
+    document.getElementById('conn-dot').className   = 'conn-dot on';
+    document.getElementById('conn-text').textContent = device.name || 'Connected';
+
+  } catch(e) {
+    err.textContent = e.message || 'Connection failed.';
+    btn.disabled    = false;
+    btn.textContent = 'Connect Device';
+    document.getElementById('conn-dot').className = 'conn-dot err';
+  }
+}
+
+function onDisconnected() {
+  document.getElementById('conn-dot').className    = 'conn-dot err';
+  document.getElementById('conn-text').textContent = 'Disconnected';
+  document.getElementById('connect-screen').style.display = 'flex';
+  document.getElementById('btn-connect').disabled  = false;
+  document.getElementById('btn-connect').textContent = 'Reconnect';
+  clearInterval(warmupTimer);
+  document.getElementById('warmup-banner').classList.remove('visible');
+}
+
+if (!navigator.bluetooth) {
+  document.getElementById('connect-err').textContent =
+    'Web Bluetooth not supported. Use Chrome or Edge on Android or desktop.';
+  document.getElementById('btn-connect').disabled = true;
+}
+</script>
+</body>
+</html>
