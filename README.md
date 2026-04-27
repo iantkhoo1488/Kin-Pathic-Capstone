@@ -24,7 +24,7 @@ README.md
 - OS tested: ( Windows )
 - Dependencies:
   - ADAFruit Libraries for the MAX30102 HRM
-  - ADAFruit Libraries for the OLED screen
+    - MAX30105 particleSensor
 
 ---
 
