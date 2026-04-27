@@ -17,8 +17,6 @@ prototypecode/ --- stores the code for the various prototypes
 README.md
 ```
 
-- `tests/` --- tests to be run on the device
-- `data/` --- stores the data collected
 - `requirements.txt` VSCode + NRFConnect + ZephyrRTOS
 
 ---
@@ -26,9 +24,16 @@ README.md
 ## Requirements
 - Language/runtime: (VSCode + NRFConnect + ZephyrRTOS)
 - OS tested: ( Windows )
-- Dependencies:
-  - ADAFruit Libraries for the MAX30102 HRM
-  - ADAFruit Libraries for the OLED screen
+- Dependencies: (mainly for Zephyr RTOS)
+  - CMake
+  - Ninja-Build
+  - gperf
+  - Python3
+  - Git
+  - DTC (Device Tree Compiler)
+  - wget
+  - 7-Zip
+  - winget
 
 ---
 
@@ -45,8 +50,7 @@ prototype: plug-in power source, powers on automatically, and will start taking 
 
 ## Known Issues / Limitations
   - Current prototype does not take in values into memory
-  - Connects to Bluetooth, but does not send values yet
-  - Current sensor is not entirely accurate
+  - Bluetooth range about 10 meters
 
 ---
 
