@@ -17,14 +17,10 @@ prototypecode/ --- stores the code for the various prototypes
 README.md
 ```
 
-- `tests/` --- tests to be run on the device
-- `data/` --- stores the data collected
-- `requirements.txt` VSCode + NRFConnect + ZephyrRTOS
-
 ---
 
 ## Requirements
-- Language/runtime: (VSCode + NRFConnect + ZephyrRTOS)
+- Language/runtime: (Arduino IDE)
 - OS tested: ( Windows )
 - Dependencies:
   - ADAFruit Libraries for the MAX30102 HRM
@@ -39,19 +35,17 @@ README.md
 
 ## Quick Start (Run Locally)
 prototype: plug-in power source, powers on automatically, and will start taking down values.
-  - Power off by unplugging the battery
-  - data is not stored
+Open the application, connect to the target device, and wait for new values to come in
+
 ---
 
 ## Known Issues / Limitations
   - Current prototype does not take in values into memory
-  - Connects to Bluetooth, but does not send values yet
+  - Bluetooth range is about 25 meters
   - Current sensor is not entirely accurate
 
 ---
 
 ## Academic Integrity / External Tools
-VSCode
+Arduino IDE
 ChatGPT/Claude.ai (troubleshooting)
-StackOverflow
-Zephyr manual: https://docs.zephyrproject.org/latest/develop/getting_started/index.html
