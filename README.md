@@ -17,18 +17,14 @@ prototypecode/ --- stores the code for the various prototypes
 README.md
 ```
 
-- `tests/` --- tests to be run on the device
-- `data/` --- stores the data collected
-- `requirements.txt` VSCode + NRFConnect + ZephyrRTOS
 
 ---
 
 ## Requirements
-- Language/runtime: (VSCode + NRFConnect + ZephyrRTOS)
-- OS tested: ( Windows )
+- Language/runtime: (HTML)
+- OS tested: ( ColorOS )
 - Dependencies:
-  - ADAFruit Libraries for the MAX30102 HRM
-  - ADAFruit Libraries for the OLED screen
+  - have a web browser
 
 ---
 
@@ -45,13 +41,10 @@ prototype: plug-in power source, powers on automatically, and will start taking 
 
 ## Known Issues / Limitations
   - Current prototype does not take in values into memory
-  - Connects to Bluetooth, but does not send values yet
-  - Current sensor is not entirely accurate
+  - Does not work on iPhone/Apple products
 
 ---
 
 ## Academic Integrity / External Tools
 VSCode
 ChatGPT/Claude.ai (troubleshooting)
-StackOverflow
-Zephyr manual: https://docs.zephyrproject.org/latest/develop/getting_started/index.html
